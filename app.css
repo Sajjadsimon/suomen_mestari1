@@ -286,15 +286,19 @@ body {
 }
 
 /* Flashcard Container */
+#view-cards {
+  padding-bottom: calc(var(--nav-height) + 85px);
+}
+
 .card-scene {
   perspective: 1000px;
-  margin: 16px 0 20px;
-  min-height: 280px;
+  margin: 8px 0 16px;
+  min-height: 360px;
 }
 
 .flashcard {
   width: 100%;
-  min-height: 280px;
+  min-height: 360px;
   position: relative;
   transition: transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   transform-style: preserve-3d;
@@ -308,23 +312,44 @@ body {
 .card-face {
   position: absolute;
   width: 100%;
-  min-height: 100%;
+  height: 100%;
+  min-height: 360px;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
 }
 
 .card-face-back {
   transform: rotateY(180deg);
   background: linear-gradient(145deg, rgba(23, 37, 84, 0.9), rgba(15, 23, 42, 0.95));
   border-color: rgba(56, 189, 248, 0.3);
+}
+
+.card-center-scroll {
+  flex: 1;
+  max-height: calc(100dvh - var(--header-height) - var(--nav-height) - 180px);
+  min-height: 200px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 4px 6px;
+}
+
+.card-center-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.card-center-scroll::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.3);
+  border-radius: var(--radius-full);
 }
 
 .card-top {
@@ -443,26 +468,61 @@ body {
   color: #fff;
 }
 
+/* Fixed Action Dock: Anchored directly above bottom navigation bar */
+.card-actions-dock {
+  position: fixed;
+  bottom: var(--nav-height);
+  left: 0;
+  right: 0;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 10px 16px 12px;
+  background: linear-gradient(180deg, rgba(9, 13, 22, 0.72) 0%, rgba(9, 13, 22, 0.96) 35%, rgba(9, 13, 22, 1) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+}
+
+#view-cards:not(.active) .card-actions-dock,
+.card-actions-dock.hidden {
+  display: none !important;
+}
+
+.card-actions-dock .btn-primary {
+  width: 100%;
+  margin: 0;
+  padding: 14px 20px;
+  font-size: 1rem;
+}
+
 /* SRS 4-Buttons Action Row */
 .srs-actions {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
-  margin-top: 16px;
+  margin: 0;
+  width: 100%;
 }
 
 .srs-btn {
   border: none;
   border-radius: var(--radius-md);
-  padding: 12px 6px;
+  padding: 10px 4px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   font-family: var(--font-sans);
   transition: all 0.15s ease;
+  min-height: 52px;
 }
 
 .srs-btn:active {
@@ -470,26 +530,26 @@ body {
 }
 
 .srs-btn-forgot {
-  background: rgba(244, 63, 94, 0.15);
-  border: 1px solid rgba(244, 63, 94, 0.35);
-  color: #f43f5e;
+  background: rgba(244, 63, 94, 0.18);
+  border: 1px solid rgba(244, 63, 94, 0.45);
+  color: #fb7185;
 }
 
 .srs-btn-hard {
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.45);
   color: #fbbf24;
 }
 
 .srs-btn-good {
-  background: rgba(16, 185, 129, 0.15);
-  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.45);
   color: #34d399;
 }
 
 .srs-btn-easy {
-  background: rgba(56, 189, 248, 0.15);
-  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.18);
+  border: 1px solid rgba(56, 189, 248, 0.45);
   color: #38bdf8;
 }
 
@@ -500,8 +560,20 @@ body {
 
 .srs-interval {
   font-size: 0.68rem;
-  opacity: 0.8;
+  opacity: 0.85;
   font-family: var(--font-mono);
+}
+
+#card-back-confusing {
+  max-height: 180px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#card-back-related {
+  max-height: 160px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Diacritic Alert Box */

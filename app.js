@@ -551,6 +551,8 @@
     cardEl.classList.remove('flipped');
     isCardFlipped = false;
 
+    const actionsDock = document.getElementById('card-actions-dock');
+    if (actionsDock) actionsDock.classList.add('hidden');
     document.getElementById('btn-reveal-card').style.display = 'none';
     document.getElementById('srs-actions-container').style.display = 'none';
     document.getElementById('card-typing-container').style.display = 'none';
@@ -615,6 +617,9 @@
       renderCompletionScreen();
       return;
     }
+
+    const actionsDock = document.getElementById('card-actions-dock');
+    if (actionsDock) actionsDock.classList.remove('hidden');
 
     const concept = currentQueue[currentIndex];
     const cardEl = document.getElementById('flashcard-element');

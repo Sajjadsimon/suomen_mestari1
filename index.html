@@ -187,7 +187,7 @@
               <span id="card-back-page" style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono);">Sivu 11</span>
             </div>
             
-            <div class="card-center" style="max-height: 280px; overflow-y: auto; padding: 4px;">
+            <div class="card-center card-center-scroll">
               <div class="card-word" id="card-back-word" style="font-size: 1.6rem;">tervetuloa</div>
               <div class="card-meaning" id="card-back-meaning">welcome</div>
               
@@ -209,29 +209,32 @@
         </div>
       </div>
 
-      <!-- Action Button / Reveal -->
-      <button class="btn-primary" id="btn-reveal-card" style="margin-bottom: 12px;">
-        👁️ Katso vastaus
-      </button>
+      <!-- Fixed Action Dock: Anchored directly above bottom navigation bar -->
+      <div class="card-actions-dock" id="card-actions-dock">
+        <!-- Action Button / Reveal -->
+        <button class="btn-primary" id="btn-reveal-card">
+          👁️ Katso vastaus
+        </button>
 
-      <!-- SRS 4-Buttons Grade Row -->
-      <div class="srs-actions" id="srs-actions-container" style="display: none;">
-        <button class="srs-btn srs-btn-forgot" id="btn-srs-forgot">
-          <span class="srs-name">Unohdin</span>
-          <span class="srs-interval">10 min</span>
-        </button>
-        <button class="srs-btn srs-btn-hard" id="btn-srs-hard">
-          <span class="srs-name">Vaikea</span>
-          <span class="srs-interval">1 pv</span>
-        </button>
-        <button class="srs-btn srs-btn-good" id="btn-srs-good">
-          <span class="srs-name">Muistin</span>
-          <span class="srs-interval">3 pv</span>
-        </button>
-        <button class="srs-btn srs-btn-easy" id="btn-srs-easy">
-          <span class="srs-name">Helppo</span>
-          <span class="srs-interval">7 pv</span>
-        </button>
+        <!-- SRS 4-Buttons Grade Row (Always visible & accessible) -->
+        <div class="srs-actions" id="srs-actions-container" style="display: none;">
+          <button class="srs-btn srs-btn-forgot" id="btn-srs-forgot">
+            <span class="srs-name">Unohdin</span>
+            <span class="srs-interval">10 min</span>
+          </button>
+          <button class="srs-btn srs-btn-hard" id="btn-srs-hard">
+            <span class="srs-name">Vaikea</span>
+            <span class="srs-interval">1 pv</span>
+          </button>
+          <button class="srs-btn srs-btn-good" id="btn-srs-good">
+            <span class="srs-name">Muistin</span>
+            <span class="srs-interval">3 pv</span>
+          </button>
+          <button class="srs-btn srs-btn-easy" id="btn-srs-easy">
+            <span class="srs-name">Helppo</span>
+            <span class="srs-interval">7 pv</span>
+          </button>
+        </div>
       </div>
     </section>
 
