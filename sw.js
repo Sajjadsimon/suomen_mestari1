@@ -1,4 +1,4 @@
-const CACHE_NAME = 'suomi-pwa-v1';
+const CACHE_NAME = 'suomi-pwa-v3';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -6,6 +6,9 @@ const ASSETS_TO_CACHE = [
   './app.js',
   './manifest.webmanifest',
   './icons/icon.svg',
+  './icons/apple-touch-icon.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
   './data/vocab_data.json'
 ];
 

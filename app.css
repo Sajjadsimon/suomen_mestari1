@@ -749,3 +749,135 @@ body {
   font-size: 0.78rem;
   color: var(--text-muted);
 }
+
+/* Related & Confusing Words UI */
+.related-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: var(--radius-full);
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  color: #e0f2fe;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.related-chip:active {
+  background: rgba(56, 189, 248, 0.25);
+  transform: scale(0.96);
+}
+
+.related-chip .rw-fi {
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.related-chip .rw-en {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.card-related-scroll {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-height: 90px;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+
+.related-badge-item {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.related-badge-item strong {
+  color: #38bdf8;
+}
+
+.confusing-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  color: #fef08a;
+}
+
+.confusing-item-row strong {
+  color: #fbbf24;
+}
+
+.confusing-pair-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.audio-btn-mini {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  cursor: pointer;
+  padding: 3px 7px;
+  font-size: 0.8rem;
+  transition: all 0.15s ease;
+}
+
+.audio-btn-mini:active {
+  background: var(--color-primary);
+  transform: scale(1.1);
+}
+
+/* iOS Safari Standalone & Viewport Optimization */
+html, body {
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+@supports (height: 100dvh) {
+  body {
+    min-height: 100dvh;
+  }
+}
+
+.ios-install-banner {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  background: rgba(14, 116, 144, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(56, 189, 248, 0.4);
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #fff;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+
