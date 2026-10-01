@@ -145,6 +145,21 @@
         </div>
       </div>
 
+      <!-- Card Quick Action Buttons (Snooze 7d & Delete/Hide) -->
+      <div class="card-meta-bar">
+        <div class="card-meta-left">
+          <button class="btn-card-mini btn-mini-snooze" id="btn-card-snooze" title="Älä näytä tätä sanaa 1 viikkoon (7 päivään)">
+            <span class="mini-icon">💤</span> 1 vk tauko
+          </button>
+          <button class="btn-card-mini btn-mini-delete" id="btn-card-hide" title="Poista sana oppimisesta (ei näytetä enää koskaan)">
+            <span class="mini-icon">🗑️</span> Poista sana
+          </button>
+        </div>
+        <div class="card-meta-right">
+          <span id="card-status-badge" class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-faint); font-size: 0.68rem;">Aktiivinen</span>
+        </div>
+      </div>
+
       <!-- 3D Flippable Card Scene -->
       <div class="card-scene">
         <div class="flashcard" id="flashcard-element">
@@ -283,6 +298,7 @@
         <button class="badge filter-chip" data-filter="noun">Substantiivit</button>
         <button class="badge filter-chip" data-filter="adj">Adjektiivit</button>
         <button class="badge filter-chip" data-filter="phrase">Ilmaukset</button>
+        <button class="badge filter-chip" data-filter="hidden" id="chip-filter-hidden" style="color: #fb7185; border-color: rgba(244,63,94,0.35);">🗑️ Piilotetut (<span id="hidden-words-chip-count">0</span>)</button>
       </div>
 
       <!-- Dictionary List -->
@@ -327,6 +343,40 @@
             <span>🔵 Harjoittelet: <strong id="count-learning" style="color:#fff;">0</strong></span>
             <span>⚪ Uusia: <strong id="count-new" style="color:#fff;">1494</strong></span>
           </div>
+        </div>
+      </div>
+
+      <!-- Hidden & Snoozed Words Management Card -->
+      <div class="glass-card" style="border-left: 4px solid #f43f5e;" id="card-hidden-words-section">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+          <div>
+            <h2 style="font-size: 1.1rem; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+              <span>🗄️</span> Piilotetut ja tauolla olevat sanat
+            </h2>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 3px;">
+              Hallitse poistamiasi sanoja ja palauta ne takaisin oppimiskiertoon.
+            </p>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+          <div class="stat-box" style="padding: 10px;">
+            <div class="stat-value" id="stats-hidden-count" style="color: #fb7185; font-size: 1.2rem;">0</div>
+            <div class="stat-label">Poistettua sanaa</div>
+          </div>
+          <div class="stat-box" style="padding: 10px;">
+            <div class="stat-value" id="stats-snoozed-count" style="color: #fbbf24; font-size: 1.2rem;">0</div>
+            <div class="stat-label">1 vk tauolla</div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <button class="btn-primary" id="btn-open-hidden-modal" style="background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.4); color: #fb7185; box-shadow: none; font-size: 0.9rem; padding: 12px;">
+            📋 Avaa poistettujen lista (<span id="hidden-modal-btn-count">0</span>)
+          </button>
+          <button class="btn-primary" id="btn-open-snoozed-modal" style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24; box-shadow: none; font-size: 0.9rem; padding: 12px;">
+            ⏳ Näytä tauolla olevat sanat (<span id="snoozed-modal-btn-count">0</span>)
+          </button>
         </div>
       </div>
 
@@ -410,7 +460,17 @@
         <div id="modal-related-content" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; max-height: 220px; overflow-y: auto; padding: 2px;"></div>
       </div>
 
-      <button class="btn-primary" id="modal-close-btn" style="margin-top: 22px; background: rgba(255,255,255,0.08); border: 1px solid var(--border-subtle); box-shadow: none;">
+      <!-- Modal Quick Actions (Snooze 7d & Delete/Hide/Restore) -->
+      <div class="modal-actions-row" style="display: flex; gap: 8px; margin-top: 16px; border-top: 1px solid var(--border-subtle); padding-top: 14px;">
+        <button id="modal-snooze-btn" class="btn-card-mini btn-mini-snooze" style="flex: 1; justify-content: center; padding: 9px 12px; font-size: 0.82rem;">
+          💤 1 vk tauko
+        </button>
+        <button id="modal-hide-btn" class="btn-card-mini btn-mini-delete" style="flex: 1; justify-content: center; padding: 9px 12px; font-size: 0.82rem;">
+          🗑️ Poista sana
+        </button>
+      </div>
+
+      <button class="btn-primary" id="modal-close-btn" style="margin-top: 16px; background: rgba(255,255,255,0.08); border: 1px solid var(--border-subtle); box-shadow: none;">
         Sulje
       </button>
     </div>
@@ -437,6 +497,53 @@
       </button>
     </div>
   </div>
+
+  <!-- Hidden Words Management Bottom Sheet Modal -->
+  <div class="modal-overlay" id="hidden-words-modal">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div>
+          <h2 style="font-size: 1.3rem; font-weight: 800; color: #fb7185;">🗑️ Poistetut sanat</h2>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">Nämä sanat eivät tule koskaan harjoituksiin.</p>
+        </div>
+        <span class="badge badge-amber" id="hidden-list-count-badge">0 sanaa</span>
+      </div>
+
+      <div id="hidden-words-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto; padding: 4px;">
+        <!-- Injected via JS -->
+      </div>
+
+      <button class="btn-primary" id="hidden-modal-close-btn" style="margin-top: 18px; background: rgba(255,255,255,0.08); border: 1px solid var(--border-subtle); box-shadow: none;">
+        Sulje
+      </button>
+    </div>
+  </div>
+
+  <!-- Snoozed Words Bottom Sheet Modal -->
+  <div class="modal-overlay" id="snoozed-words-modal">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div>
+          <h2 style="font-size: 1.3rem; font-weight: 800; color: #fbbf24;">💤 Tauolla olevat sanat (7 pv)</h2>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">Palaavat automaattisesti normaaliin jonoon viikon kuluttua.</p>
+        </div>
+        <span class="badge badge-amber" id="snoozed-list-count-badge">0 sanaa</span>
+      </div>
+
+      <div id="snoozed-words-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto; padding: 4px;">
+        <!-- Injected via JS -->
+      </div>
+
+      <button class="btn-primary" id="snoozed-modal-close-btn" style="margin-top: 18px; background: rgba(255,255,255,0.08); border: 1px solid var(--border-subtle); box-shadow: none;">
+        Sulje
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="app-toast" class="app-toast"></div>
 
   <!-- Bottom Navigation Bar (iOS Native Style) -->
   <nav class="bottom-nav">

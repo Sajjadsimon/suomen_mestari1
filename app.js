@@ -18,6 +18,8 @@
   const STORAGE_STATES = 'suomi_pwa_learning_states';
   const STORAGE_REVIEWS = 'suomi_pwa_review_events';
   const STORAGE_SETTINGS = 'suomi_pwa_settings';
+  const STORAGE_HIDDEN = 'suomi_pwa_hidden_words';
+  const STORAGE_SNOOZED = 'suomi_pwa_snoozed_words';
 
   // --- INITIALIZATION ---
   document.addEventListener('DOMContentLoaded', async () => {
@@ -29,6 +31,7 @@
     initCardActions();
     initDictionary();
     initConfusingModal();
+    initHiddenAndSnoozedModals();
     initStandaloneExperience();
     initSync();
     updateStreakDisplay();
@@ -45,6 +48,7 @@
       updateTodayStats();
       renderStatsView();
       renderDictionaryList();
+      updateHiddenAndSnoozedCounts();
       
       document.getElementById('badge-total-concepts').textContent = `${vocabData.total_concepts.toLocaleString('fi-FI')} sanaa`;
     } catch (err) {
@@ -170,6 +174,131 @@
     });
     localStorage.setItem(STORAGE_REVIEWS, JSON.stringify(events));
     updateStreakOnReview();
+  }
+
+  // --- TOAST NOTIFICATIONS ---
+  let toastTimer = null;
+  function showToast(message, icon = 'ℹ️') {
+    const toast = document.getElementById('app-toast');
+    if (!toast) return;
+    toast.innerHTML = `<span style="font-size: 1.15rem;">${icon}</span> <span>${message}</span>`;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toast.classList.remove('show');
+    }, 2800);
+  }
+
+  // --- HIDDEN WORDS (PERMANENT EXCLUSION & RESTORATION) ---
+  function getHiddenWords() {
+    try {
+      const data = JSON.parse(localStorage.getItem(STORAGE_HIDDEN));
+      return Array.isArray(data) ? new Set(data) : new Set();
+    } catch {
+      return new Set();
+    }
+  }
+
+  function saveHiddenWords(setOrArray) {
+    const arr = Array.from(setOrArray);
+    localStorage.setItem(STORAGE_HIDDEN, JSON.stringify(arr));
+  }
+
+  function isWordHidden(id) {
+    return getHiddenWords().has(id);
+  }
+
+  function hideWord(id) {
+    const hidden = getHiddenWords();
+    hidden.add(id);
+    saveHiddenWords(hidden);
+    cancelSnooze(id); // cancel snooze if previously snoozed
+  }
+
+  function restoreWord(id) {
+    const hidden = getHiddenWords();
+    hidden.delete(id);
+    saveHiddenWords(hidden);
+  }
+
+  // --- SNOOZED WORDS (7-DAY TEMPORARY PAUSE) ---
+  function getSnoozedWords() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_SNOOZED)) || {};
+    } catch {
+      return {};
+    }
+  }
+
+  function saveSnoozedWords(map) {
+    localStorage.setItem(STORAGE_SNOOZED, JSON.stringify(map));
+  }
+
+  function isWordSnoozed(id) {
+    const snoozed = getSnoozedWords();
+    const entry = snoozed[id];
+    if (!entry || !entry.until) return false;
+    const now = new Date();
+    if (new Date(entry.until) <= now) {
+      // Snooze expired! Clean up automatically so it returns to regular waiting rotation
+      delete snoozed[id];
+      saveSnoozedWords(snoozed);
+      return false;
+    }
+    return true;
+  }
+
+  function snoozeWord(id, days = 7) {
+    const snoozed = getSnoozedWords();
+    const until = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+    snoozed[id] = {
+      snoozed_at: new Date().toISOString(),
+      until: until.toISOString(),
+      days: days
+    };
+    saveSnoozedWords(snoozed);
+    return until;
+  }
+
+  function cancelSnooze(id) {
+    const snoozed = getSnoozedWords();
+    if (snoozed[id]) {
+      delete snoozed[id];
+      saveSnoozedWords(snoozed);
+    }
+  }
+
+  function updateHiddenAndSnoozedCounts() {
+    const hiddenSet = getHiddenWords();
+    const snoozedMap = getSnoozedWords();
+    const now = new Date();
+    let validSnoozeCount = 0;
+    Object.keys(snoozedMap).forEach(id => {
+      if (new Date(snoozedMap[id].until) > now) validSnoozeCount++;
+    });
+
+    const hiddenCount = hiddenSet.size;
+
+    const chipCount = document.getElementById('hidden-words-chip-count');
+    if (chipCount) chipCount.textContent = hiddenCount;
+
+    const statsHidden = document.getElementById('stats-hidden-count');
+    if (statsHidden) statsHidden.textContent = hiddenCount;
+
+    const statsSnoozed = document.getElementById('stats-snoozed-count');
+    if (statsSnoozed) statsSnoozed.textContent = validSnoozeCount;
+
+    const hiddenModalBtn = document.getElementById('hidden-modal-btn-count');
+    if (hiddenModalBtn) hiddenModalBtn.textContent = hiddenCount;
+
+    const snoozedModalBtn = document.getElementById('snoozed-modal-btn-count');
+    if (snoozedModalBtn) snoozedModalBtn.textContent = validSnoozeCount;
+
+    const hiddenListBadge = document.getElementById('hidden-list-count-badge');
+    if (hiddenListBadge) hiddenListBadge.textContent = `${hiddenCount} sanaa`;
+
+    const snoozedListBadge = document.getElementById('snoozed-list-count-badge');
+    if (snoozedListBadge) snoozedListBadge.textContent = `${validSnoozeCount} sanaa`;
   }
 
   // --- AUDIO SPEECH SYNTHESIS & NATIVE AUDIO ---
@@ -378,6 +507,8 @@
     let masteredCount = 0;
 
     vocabData.concepts.forEach(c => {
+      if (isWordHidden(c.id) || isWordSnoozed(c.id)) return;
+
       const state = states[c.id];
       if (!state || state.status === 'new') {
         newCount++;
@@ -394,6 +525,8 @@
 
     const todayDate = new Date().toLocaleDateString('fi-FI', { weekday: 'long', day: 'numeric', month: 'long' });
     document.getElementById('today-date-text').textContent = todayDate.charAt(0).toUpperCase() + todayDate.slice(1);
+
+    updateHiddenAndSnoozedCounts();
   }
 
   function startTodaySession() {
@@ -407,6 +540,8 @@
     let newList = [];
 
     vocabData.concepts.forEach(c => {
+      if (isWordHidden(c.id) || isWordSnoozed(c.id)) return;
+
       // Filter by chapter if selected
       if (selectedChapter !== 'all') {
         const hasChapter = c.occurrences && c.occurrences.some(o => o.chapter_id.endsWith(`_${selectedChapter}`));
@@ -427,9 +562,9 @@
 
     currentQueue = [...dueList, ...newList.slice(0, DAILY_QUOTA)];
     if (currentQueue.length === 0) {
-      // Fallback: pick words from selection for practice
+      // Fallback: pick words from selection for practice (excluding hidden & snoozed)
       currentQueue = vocabData.concepts
-        .filter(c => selectedChapter === 'all' || (c.occurrences && c.occurrences.some(o => o.chapter_id.endsWith(`_${selectedChapter}`))))
+        .filter(c => !isWordHidden(c.id) && !isWordSnoozed(c.id) && (selectedChapter === 'all' || (c.occurrences && c.occurrences.some(o => o.chapter_id.endsWith(`_${selectedChapter}`)))))
         .sort(() => Math.random() - 0.5)
         .slice(0, DAILY_QUOTA);
     }
@@ -452,7 +587,9 @@
       conceptIds.add(r.to_id);
     });
 
-    const pool = Array.from(conceptIds).map(id => conceptsMap.get(id)).filter(Boolean);
+    const pool = Array.from(conceptIds)
+      .map(id => conceptsMap.get(id))
+      .filter(c => c && !isWordHidden(c.id) && !isWordSnoozed(c.id));
     pool.sort(() => Math.random() - 0.5);
 
     currentQueue = pool.slice(0, 30);
@@ -509,6 +646,42 @@
     document.getElementById('btn-srs-hard').addEventListener('click', () => handleSRSResult('hard'));
     document.getElementById('btn-srs-good').addEventListener('click', () => handleSRSResult('good'));
     document.getElementById('btn-srs-easy').addEventListener('click', () => handleSRSResult('easy'));
+
+    // Snooze 7 Days button
+    document.getElementById('btn-card-snooze')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const currentConcept = currentQueue[currentIndex];
+      if (!currentConcept) return;
+
+      snoozeWord(currentConcept.id, 7);
+      showToast(`"${currentConcept.finnish}" tauolla 1 vk (7 pv)`, '💤');
+
+      currentQueue.splice(currentIndex, 1);
+      renderCurrentCard();
+      updateTodayStats();
+      updateHiddenAndSnoozedCounts();
+      renderStatsView();
+    });
+
+    // Delete / Hide Word button
+    document.getElementById('btn-card-hide')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const currentConcept = currentQueue[currentIndex];
+      if (!currentConcept) return;
+
+      if (!confirm(`Haluatko poistaa sanan "${currentConcept.finnish}" (${currentConcept.english}) oppimisesta?\n\nSana ei enää tule vastaan harjoituksissa. Voit palauttaa sen milloin vain Edistys- tai Sanasto-sivulta.`)) {
+        return;
+      }
+
+      hideWord(currentConcept.id);
+      showToast(`"${currentConcept.finnish}" poistettu oppimisesta`, '🗑️');
+
+      currentQueue.splice(currentIndex, 1);
+      renderCurrentCard();
+      updateTodayStats();
+      updateHiddenAndSnoozedCounts();
+      renderStatsView();
+    });
 
     // Input checking for diacritics in EN -> FI mode
     const inputRecall = document.getElementById('input-recall-text');
@@ -597,8 +770,8 @@
     const states = getLearningStates();
     const alreadyInQueue = new Set(currentQueue.map(c => c.id));
 
-    // Find new words or due words that were not in the current session
-    let moreList = vocabData.concepts.filter(c => !alreadyInQueue.has(c.id));
+    // Find new words or due words that were not in the current session (excluding hidden & snoozed)
+    let moreList = vocabData.concepts.filter(c => !alreadyInQueue.has(c.id) && !isWordHidden(c.id) && !isWordSnoozed(c.id));
     moreList.sort(() => Math.random() - 0.5);
 
     const nextBatch = moreList.slice(0, 15);
@@ -629,6 +802,25 @@
     document.getElementById('srs-actions-container').style.display = 'none';
     document.getElementById('btn-reveal-card').style.display = 'block';
     document.getElementById('card-queue-index').textContent = `${currentIndex + 1} / ${currentQueue.length}`;
+
+    // Update status badge on meta toolbar
+    const statusBadge = document.getElementById('card-status-badge');
+    if (statusBadge) {
+      const state = getConceptState(concept.id);
+      if (isWordSnoozed(concept.id)) {
+        statusBadge.textContent = '💤 Tauolla';
+        statusBadge.style.color = '#fbbf24';
+      } else if (state.status === 'mastered') {
+        statusBadge.textContent = '🟢 Hallussa';
+        statusBadge.style.color = '#34d399';
+      } else if (state.status === 'learning') {
+        statusBadge.textContent = '🔵 Harjoitellaan';
+        statusBadge.style.color = '#38bdf8';
+      } else {
+        statusBadge.textContent = '⚪ Uusi';
+        statusBadge.style.color = 'var(--text-faint)';
+      }
+    }
 
     // Occurrence chapter
     const occ = concept.occurrences && concept.occurrences[0];
@@ -842,7 +1034,7 @@
 
   function startTopicPractice(topicId) {
     if (!vocabData) return;
-    const pool = vocabData.concepts.filter(c => c.topics && c.topics.includes(topicId));
+    const pool = vocabData.concepts.filter(c => c.topics && c.topics.includes(topicId) && !isWordHidden(c.id) && !isWordSnoozed(c.id));
     pool.sort(() => Math.random() - 0.5);
 
     currentQueue = pool.slice(0, 30);
@@ -883,6 +1075,13 @@
 
     const lowerQuery = query.toLowerCase();
     let filtered = vocabData.concepts.filter(c => {
+      // Special filter for hidden words
+      if (activeFilter === 'hidden') {
+        if (!isWordHidden(c.id)) return false;
+        if (!query) return true;
+        return c.finnish.toLowerCase().includes(lowerQuery) || c.english.toLowerCase().includes(lowerQuery);
+      }
+
       // Filter by POS
       if (activeFilter === 'verb' && c.part_of_speech !== 'verbi') return false;
       if (activeFilter === 'noun' && c.part_of_speech !== 'substantiivi') return false;
@@ -897,16 +1096,55 @@
     const renderBatch = filtered.slice(0, 50);
 
     container.innerHTML = '';
+    if (renderBatch.length === 0 && activeFilter === 'hidden') {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 40px 16px; color: var(--text-muted);">
+          <div style="font-size: 2rem; margin-bottom: 8px;">✨</div>
+          <div style="font-weight: 700; color: #f8fafc; margin-bottom: 4px;">Ei piilotettuja sanoja</div>
+          <div style="font-size: 0.82rem;">Kaikki sanat ovat mukana oppimisessa!</div>
+        </div>
+      `;
+      return;
+    }
+
     renderBatch.forEach(concept => {
       const item = document.createElement('div');
       item.className = 'dict-item';
+      const isHidden = isWordHidden(concept.id);
+      const isSnoozed = isWordSnoozed(concept.id);
+
       item.innerHTML = `
-        <div>
-          <div class="dict-word">${concept.finnish}</div>
+        <div style="flex: 1;">
+          <div class="dict-word">
+            ${concept.finnish}
+            ${isHidden ? '<span class="badge" style="background: rgba(244,63,94,0.15); color: #fb7185; margin-left: 6px; font-size: 0.65rem;">Poistettu</span>' : ''}
+            ${isSnoozed ? '<span class="badge" style="background: rgba(245,158,11,0.15); color: #fbbf24; margin-left: 6px; font-size: 0.65rem;">Tauolla</span>' : ''}
+          </div>
           <div class="dict-trans">${concept.english}</div>
         </div>
-        <button class="audio-btn" style="padding: 4px 10px; font-size: 0.8rem;">🔊</button>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          ${isHidden ? `
+            <button class="btn-restore-mini btn-dict-restore" data-id="${concept.id}" title="Palauta sana oppimiskiertoon">
+              🔄 Palauta
+            </button>
+          ` : ''}
+          <button class="audio-btn" style="padding: 4px 10px; font-size: 0.8rem;">🔊</button>
+        </div>
       `;
+
+      // Restore button click
+      const restoreBtn = item.querySelector('.btn-dict-restore');
+      if (restoreBtn) {
+        restoreBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          restoreWord(concept.id);
+          showToast(`"${concept.finnish}" palautettu oppimiskiertoon!`, '✅');
+          renderDictionaryList(document.getElementById('dict-search-input').value.trim());
+          updateTodayStats();
+          updateHiddenAndSnoozedCounts();
+          renderStatsView();
+        });
+      }
 
       // Speak on audio click
       item.querySelector('.audio-btn').addEventListener('click', (e) => {
@@ -1024,6 +1262,65 @@
       }
     } else {
       relatedBox.style.display = 'none';
+    }
+
+    // Quick Action buttons inside Modal (Snooze & Hide/Restore)
+    const modalHideBtn = document.getElementById('modal-hide-btn');
+    const modalSnoozeBtn = document.getElementById('modal-snooze-btn');
+
+    if (modalHideBtn) {
+      if (isWordHidden(concept.id)) {
+        modalHideBtn.innerHTML = '🔄 Palauta oppimiseen';
+        modalHideBtn.className = 'btn-card-mini btn-restore-mini';
+        modalHideBtn.onclick = () => {
+          restoreWord(concept.id);
+          showToast(`"${concept.finnish}" palautettu oppimiskiertoon!`, '✅');
+          openWordModal(concept);
+          updateTodayStats();
+          updateHiddenAndSnoozedCounts();
+          renderStatsView();
+          renderDictionaryList(document.getElementById('dict-search-input').value.trim());
+        };
+      } else {
+        modalHideBtn.innerHTML = '🗑️ Poista sana';
+        modalHideBtn.className = 'btn-card-mini btn-mini-delete';
+        modalHideBtn.onclick = () => {
+          if (!confirm(`Haluatko poistaa sanan "${concept.finnish}" oppimisesta?`)) return;
+          hideWord(concept.id);
+          showToast(`"${concept.finnish}" poistettu oppimisesta`, '🗑️');
+          openWordModal(concept);
+          updateTodayStats();
+          updateHiddenAndSnoozedCounts();
+          renderStatsView();
+          renderDictionaryList(document.getElementById('dict-search-input').value.trim());
+        };
+      }
+    }
+
+    if (modalSnoozeBtn) {
+      if (isWordSnoozed(concept.id)) {
+        modalSnoozeBtn.innerHTML = '⏰ Lopeta tauko';
+        modalSnoozeBtn.className = 'btn-card-mini btn-cancel-snooze-mini';
+        modalSnoozeBtn.onclick = () => {
+          cancelSnooze(concept.id);
+          showToast(`"${concept.finnish}" tauko poistettu!`, '⚡');
+          openWordModal(concept);
+          updateTodayStats();
+          updateHiddenAndSnoozedCounts();
+          renderStatsView();
+        };
+      } else {
+        modalSnoozeBtn.innerHTML = '💤 1 vk tauko';
+        modalSnoozeBtn.className = 'btn-card-mini btn-mini-snooze';
+        modalSnoozeBtn.onclick = () => {
+          snoozeWord(concept.id, 7);
+          showToast(`"${concept.finnish}" tauolla 1 vk (7 pv)`, '💤');
+          openWordModal(concept);
+          updateTodayStats();
+          updateHiddenAndSnoozedCounts();
+          renderStatsView();
+        };
+      }
     }
 
     modal.classList.add('open');
@@ -1148,6 +1445,8 @@
       const rate = Math.round((correct / reviews.length) * 100);
       document.getElementById('stats-retention-rate').textContent = `${rate}%`;
     }
+
+    updateHiddenAndSnoozedCounts();
   }
 
   function initSync() {
@@ -1155,11 +1454,13 @@
     document.getElementById('btn-export-backup').addEventListener('click', () => {
       const backup = {
         app: 'Suomi Mestari 1 PWA',
-        version: '1.0',
+        version: '1.1',
         exported_at: new Date().toISOString(),
         learning_states: getLearningStates(),
         review_events: getReviewEvents(),
-        streak: JSON.parse(localStorage.getItem('suomi_pwa_streak')) || {}
+        streak: JSON.parse(localStorage.getItem('suomi_pwa_streak')) || {},
+        hidden_words: Array.from(getHiddenWords()),
+        snoozed_words: getSnoozedWords()
       };
 
       const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
@@ -1185,10 +1486,14 @@
             saveLearningStates(parsed.learning_states);
             if (parsed.review_events) localStorage.setItem(STORAGE_REVIEWS, JSON.stringify(parsed.review_events));
             if (parsed.streak) localStorage.setItem('suomi_pwa_streak', JSON.stringify(parsed.streak));
+            if (parsed.hidden_words) saveHiddenWords(parsed.hidden_words);
+            if (parsed.snoozed_words) saveSnoozedWords(parsed.snoozed_words);
             alert('Tiedot ladattu onnistuneesti!');
             updateTodayStats();
             renderStatsView();
             updateStreakDisplay();
+            updateHiddenAndSnoozedCounts();
+            renderDictionaryList();
           } else {
             alert('Virhe: Tiedostosta ei löytynyt oppimistietoja.');
           }
@@ -1201,15 +1506,180 @@
 
     // Reset history
     document.getElementById('btn-reset-history').addEventListener('click', () => {
-      if (confirm('Haluatko varmasti aloittaa alusta? Kaikki harjoitustiedot poistetaan.')) {
+      if (confirm('Haluatko varmasti aloittaa alusta? Kaikki harjoitustiedot ja piilotetut sanat nollataan.')) {
         localStorage.removeItem(STORAGE_STATES);
         localStorage.removeItem(STORAGE_REVIEWS);
         localStorage.removeItem('suomi_pwa_streak');
-        alert('Tiedot poistettu. Voit aloittaa alusta.');
+        localStorage.removeItem(STORAGE_HIDDEN);
+        localStorage.removeItem(STORAGE_SNOOZED);
+        alert('Tiedot nollattu. Voit aloittaa puhtaalta pöydältä.');
         updateTodayStats();
         renderStatsView();
         updateStreakDisplay();
+        updateHiddenAndSnoozedCounts();
+        renderDictionaryList();
       }
+    });
+  }
+
+  // --- HIDDEN & SNOOZED WORDS MODALS ---
+  function initHiddenAndSnoozedModals() {
+    // Hidden words modal
+    document.getElementById('btn-open-hidden-modal')?.addEventListener('click', openHiddenWordsModal);
+    document.getElementById('hidden-modal-close-btn')?.addEventListener('click', closeHiddenWordsModal);
+    document.getElementById('hidden-words-modal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'hidden-words-modal') closeHiddenWordsModal();
+    });
+
+    // Snoozed words modal
+    document.getElementById('btn-open-snoozed-modal')?.addEventListener('click', openSnoozedWordsModal);
+    document.getElementById('snoozed-modal-close-btn')?.addEventListener('click', closeSnoozedWordsModal);
+    document.getElementById('snoozed-words-modal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'snoozed-words-modal') closeSnoozedWordsModal();
+    });
+  }
+
+  function openHiddenWordsModal() {
+    renderHiddenWordsList();
+    document.getElementById('hidden-words-modal')?.classList.add('open');
+  }
+
+  function closeHiddenWordsModal() {
+    document.getElementById('hidden-words-modal')?.classList.remove('open');
+  }
+
+  function renderHiddenWordsList() {
+    const container = document.getElementById('hidden-words-list');
+    if (!container || !vocabData) return;
+
+    const hiddenIds = Array.from(getHiddenWords());
+    updateHiddenAndSnoozedCounts();
+
+    if (hiddenIds.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 36px 16px; color: var(--text-muted);">
+          <div style="font-size: 2.2rem; margin-bottom: 8px;">✨</div>
+          <div style="font-weight: 700; color: #fff; font-size: 1rem; margin-bottom: 4px;">Ei poistettuja sanoja</div>
+          <div style="font-size: 0.82rem;">Kaikki 1 494 sanaa ovat aktiivisessa oppimisessa.</div>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+    hiddenIds.forEach(id => {
+      const c = conceptsMap.get(id);
+      if (!c) return;
+
+      const occ = c.occurrences && c.occurrences[0];
+      const chapNum = occ ? occ.chapter_id.replace('ch_', '') : '1';
+
+      const row = document.createElement('div');
+      row.className = 'hidden-item-row';
+      row.innerHTML = `
+        <div class="word-info-col">
+          <div class="word-info-fi">${c.finnish}</div>
+          <div class="word-info-en">${c.english}</div>
+          <div class="word-info-meta">Kappale ${chapNum} • ${c.part_of_speech || 'sana'}</div>
+        </div>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <button class="audio-btn-mini audio-hidden" title="Kuuntele">🔊</button>
+          <button class="btn-restore-mini btn-restore-action" title="Palauta harjoituksiin">
+            🔄 Palauta
+          </button>
+        </div>
+      `;
+
+      row.querySelector('.audio-hidden').addEventListener('click', (e) => {
+        e.stopPropagation();
+        speakFinnish(c.finnish);
+      });
+
+      row.querySelector('.btn-restore-action').addEventListener('click', () => {
+        restoreWord(c.id);
+        showToast(`"${c.finnish}" palautettu harjoituksiin!`, '✅');
+        renderHiddenWordsList();
+        updateTodayStats();
+        updateHiddenAndSnoozedCounts();
+        renderStatsView();
+        renderDictionaryList(document.getElementById('dict-search-input').value.trim());
+      });
+
+      container.appendChild(row);
+    });
+  }
+
+  function openSnoozedWordsModal() {
+    renderSnoozedWordsList();
+    document.getElementById('snoozed-words-modal')?.classList.add('open');
+  }
+
+  function closeSnoozedWordsModal() {
+    document.getElementById('snoozed-words-modal')?.classList.remove('open');
+  }
+
+  function renderSnoozedWordsList() {
+    const container = document.getElementById('snoozed-words-list');
+    if (!container || !vocabData) return;
+
+    const snoozedMap = getSnoozedWords();
+    const now = new Date();
+    const activeSnoozeIds = Object.keys(snoozedMap).filter(id => new Date(snoozedMap[id].until) > now);
+
+    updateHiddenAndSnoozedCounts();
+
+    if (activeSnoozeIds.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 36px 16px; color: var(--text-muted);">
+          <div style="font-size: 2.2rem; margin-bottom: 8px;">⏳</div>
+          <div style="font-weight: 700; color: #fff; font-size: 1rem; margin-bottom: 4px;">Ei sanoja tauolla</div>
+          <div style="font-size: 0.82rem;">Voit laittaa minkä tahansa sanan 1 viikon tauolle kortin "1 vk tauko" -painikkeesta.</div>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+    activeSnoozeIds.forEach(id => {
+      const c = conceptsMap.get(id);
+      if (!c) return;
+
+      const entry = snoozedMap[id];
+      const untilDate = new Date(entry.until);
+      const daysLeft = Math.max(1, Math.ceil((untilDate - now) / (1000 * 60 * 60 * 24)));
+      const untilFormatted = untilDate.toLocaleDateString('fi-FI', { day: 'numeric', month: 'numeric' });
+
+      const row = document.createElement('div');
+      row.className = 'snoozed-item-row';
+      row.innerHTML = `
+        <div class="word-info-col">
+          <div class="word-info-fi">${c.finnish}</div>
+          <div class="word-info-en">${c.english}</div>
+          <div class="word-info-meta" style="color: #fbbf24;">💤 Palaa ${untilFormatted} (${daysLeft} pv jäljellä)</div>
+        </div>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <button class="audio-btn-mini audio-snoozed" title="Kuuntele">🔊</button>
+          <button class="btn-cancel-snooze-mini btn-cancel-snooze-action" title="Poista tauko heti">
+            ⚡ Lopeta tauko
+          </button>
+        </div>
+      `;
+
+      row.querySelector('.audio-snoozed').addEventListener('click', (e) => {
+        e.stopPropagation();
+        speakFinnish(c.finnish);
+      });
+
+      row.querySelector('.btn-cancel-snooze-action').addEventListener('click', () => {
+        cancelSnooze(c.id);
+        showToast(`"${c.finnish}" tauko poistettu!`, '⚡');
+        renderSnoozedWordsList();
+        updateTodayStats();
+        updateHiddenAndSnoozedCounts();
+        renderStatsView();
+      });
+
+      container.appendChild(row);
     });
   }
 
